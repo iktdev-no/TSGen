@@ -58,11 +58,13 @@ val reposiliteUrl = if (version.toString().endsWith("SNAPSHOT")) {
 
 publishing {
     publications {
-        // 'pluginMaven' er den magiske tingen du trenger når du bruker java-gradle-plugin
-        create<MavenPublication>("plugin") {
-            from(components["java"])
+        // Fjern din manuelle 'plugin' publikasjon.
+        // java-gradle-plugin lager automatisk publikasjoner basert på plugins-definisjonen din.
+
+        // Hvis du vil tvinge koordinater på de automatisk genererte publikasjonene:
+        withType<MavenPublication>().configureEach {
             groupId = "no.iktdev"
-            artifactId = "ts-gen" // Dette er navnet du refererer til
+            artifactId = "ts-gen"
             version = project.version.toString()
         }
     }
