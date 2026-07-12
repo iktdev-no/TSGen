@@ -77,16 +77,18 @@ val reposiliteUrl = if (version.toString().endsWith("SNAPSHOT")) {
 }
 
 publishing {
+    // 1. Vi konfigurerer den eksisterende 'pluginMaven' publikasjonen i stedet for å lage en ny
     publications {
-        create<MavenPublication>("plugin") {
-            groupId = "no.iktdev"
-            artifactId = "ts-gen"
-            // Hent ut verdien eksplisitt med .get()
-            version = dynamicVersion.get()
-
-            artifact(tasks.jar)
+        withType<MavenPublication>().configureEach {
+            if (name == "pluginMaven") {
+                groupId = "no.iktdev"
+                artifactId = "ts-gen"
+                version = dynamicVersion.get()
+            }
         }
     }
+
+    // 2. Repositories er uendret
     repositories {
         mavenLocal()
         maven {
