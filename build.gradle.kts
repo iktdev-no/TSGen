@@ -58,14 +58,16 @@ val reposiliteUrl = if (version.toString().endsWith("SNAPSHOT")) {
 
 publishing {
     publications {
-        // Fjern din manuelle 'plugin' publikasjon.
-        // java-gradle-plugin lager automatisk publikasjoner basert på plugins-definisjonen din.
-
-        // Hvis du vil tvinge koordinater på de automatisk genererte publikasjonene:
-        withType<MavenPublication>().configureEach {
+        // Vi lager en helt spesifikk publikasjon som ikke bruker "provider" mekanismen
+        create<MavenPublication>("plugin") {
             groupId = "no.iktdev"
             artifactId = "ts-gen"
             version = project.version.toString()
+
+            // Legg til jar-filen manuelt i stedet for 'from(components["java"])'
+            artifact(tasks.jar)
+            // Legg til kildekode-jar hvis du har det (valgfritt)
+            // artifact(tasks.sourcesJar)
         }
     }
     repositories {
