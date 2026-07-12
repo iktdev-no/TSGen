@@ -9,6 +9,26 @@ group = "no.iktdev"
 version = "1.0-SNAPSHOT"
 val named = "ts-gen"
 
+val dynamicVersion = providers.provider {
+    val ref = System.getenv("GITHUB_REF") ?: ""
+    val isSnapshot = ref.endsWith("/master") || ref.endsWith("/main")
+    val latestTag = providers.exec {
+        commandLine("git", "describe", "--tags", "--abbrev=0")
+    }.standardOutput.asText.getOrElse("0.0.0").trim().removePrefix("v")
+
+    if (isSnapshot) {
+        val parts = latestTag.split(".")
+        val patch = parts.lastOrNull()?.toIntOrNull()?.plus(1) ?: 1
+        val base = if (parts.size >= 2) "${parts[0]}.${parts[1]}" else latestTag
+        val buildNumber = providers.exec {
+            commandLine("git", "rev-list", "v$latestTag..HEAD", "--count")
+        }.standardOutput.asText.getOrElse("0").trim().toIntOrNull() ?: 0
+        "$base.$patch-SNAPSHOT-$buildNumber"
+    } else {
+        latestTag
+    }
+}
+
 repositories {
     mavenCentral()
 }
@@ -58,16 +78,13 @@ val reposiliteUrl = if (version.toString().endsWith("SNAPSHOT")) {
 
 publishing {
     publications {
-        // Vi lager en helt spesifikk publikasjon som ikke bruker "provider" mekanismen
         create<MavenPublication>("plugin") {
             groupId = "no.iktdev"
             artifactId = "ts-gen"
-            version = project.version.toString()
+            // Hent ut verdien eksplisitt med .get()
+            version = dynamicVersion.get()
 
-            // Legg til jar-filen manuelt i stedet for 'from(components["java"])'
             artifact(tasks.jar)
-            // Legg til kildekode-jar hvis du har det (valgfritt)
-            // artifact(tasks.sourcesJar)
         }
     }
     repositories {
@@ -80,31 +97,5 @@ publishing {
                 password = System.getenv("reposilitePassword")
             }
         }
-    }
-}
-
-// Versjons-logikk som er "Lazy" (kjøres kun når versjonen faktisk trengs)
-version = providers.provider {
-    val ref = System.getenv("GITHUB_REF") ?: ""
-    val isSnapshot = ref.endsWith("/master") || ref.endsWith("/main")
-
-    // Hent tag via providers (Gradle 9 sikker måte)
-    val latestTag = providers.exec {
-        commandLine("git", "describe", "--tags", "--abbrev=0")
-    }.standardOutput.asText.getOrElse("0.0.0").trim().removePrefix("v")
-
-    if (isSnapshot) {
-        val parts = latestTag.split(".")
-        val patch = parts.lastOrNull()?.toIntOrNull()?.plus(1) ?: 1
-        val base = if (parts.size >= 2) "${parts[0]}.${parts[1]}" else latestTag
-
-        // Hent commits via providers
-        val buildNumber = providers.exec {
-            commandLine("git", "rev-list", "v$latestTag..HEAD", "--count")
-        }.standardOutput.asText.getOrElse("0").trim().toIntOrNull() ?: 0
-
-        "$base.$patch-SNAPSHOT-$buildNumber"
-    } else {
-        latestTag
     }
 }
