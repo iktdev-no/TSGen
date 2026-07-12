@@ -3,6 +3,9 @@ package no.iktdev.ts
 import java.io.File
 
 object TsGenerator {
+    var versionInfo: String = "unknown"
+    var buildTime: String = java.time.Instant.now().toString()
+
     val ttm = TsTypeMapper()
     val tmr = TsModelRenderer()
 
@@ -16,6 +19,8 @@ object TsGenerator {
 
         val ts = buildString {
             appendLine("// AUTO-GENERATED. DO NOT EDIT.")
+            appendLine("// Version: $versionInfo")
+            appendLine("// Time: $buildTime")
             appendLine("// Source: $packageName")
             appendLine()
 

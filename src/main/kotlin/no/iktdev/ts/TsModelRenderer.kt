@@ -49,17 +49,21 @@ class TsModelRenderer {
         val typeParams = cls.typeParameters.map { it.name }
         val generic = if (typeParams.isNotEmpty()) "<" + typeParams.joinToString(", ") + ">" else ""
 
-        // 1. Finn alle super-interfacer (ekskluder Any/Object)
-        val superInterfaces = cls.supertypes
-            .mapNotNull { it.classifier as? KClass<*> }
-            .filter { it.java.isInterface && it.simpleName != "Any" }
+        // 1. Bruk java.interfaces for å sikre at vi kun får reelle interfaces du selv har definert
+        // Filtrer bort tekniske ting som Serializable
+        val superInterfaces = cls.java.interfaces
+            .map { it.kotlin }
+            .filter { it.simpleName != "Any" && it.simpleName != "Serializable" }
+
+        // Debug: Se hva vi faktisk finner
+        // println("DEBUG: ${cls.simpleName} extends ${superInterfaces.map { it.simpleName }}")
 
         // 2. Lag "extends"-biten
         val extendsClause = if (superInterfaces.isNotEmpty()) {
             " extends ${superInterfaces.joinToString(", ") { it.simpleName!! }}"
         } else ""
 
-        // 3. Finn navn på egenskaper som finnes i super-interfacer, så vi unngår duplikater
+        // 3. Finn egenskaper som finnes i super-interfacer
         val inheritedPropNames = superInterfaces.flatMap { it.memberProperties }.map { it.name }.toSet()
 
         val defaultTypeLiteral = getDefaultTypeLiteral(cls)

@@ -22,6 +22,9 @@ class TsGeneratorPlugin : Plugin<Project> {
             dependsOn("compileKotlin")
 
             doLast {
+                TsGenerator.versionInfo = project.version.toString()
+                TsGenerator.buildTime = java.time.Instant.now().toString()
+
                 val pkg = extension.packageName.get()
                 val out = extension.outputFile.get() // Henter File direkte
 
