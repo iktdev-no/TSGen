@@ -1,32 +1,40 @@
 package no.iktdev.tsgen
 
-import no.iktdev.ts.TsGenerator // Importer generatoren din
+import no.iktdev.ts.TsGenerator
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.provider.Property
 import java.io.File
+import java.net.URLClassLoader
 
-// Interface for brukerkonfigurasjon
 interface TsGeneratorExtension {
     val packageName: Property<String>
-    val outputDir: Property<File>
+    val outputFile: Property<File>
 }
 
 class TsGeneratorPlugin : Plugin<Project> {
     override fun apply(project: Project) {
-        // Lag en extension så brukeren kan sette config
         val extension = project.extensions.create("tsGenerator", TsGeneratorExtension::class.java)
 
         project.tasks.register("generateTs") {
-            // Sett avhengighet (valgfritt: gjør at den alltid kjører før compile)
+            group = "typescript"
             dependsOn("compileKotlin")
 
             doLast {
                 val pkg = extension.packageName.get()
-                val out = extension.outputDir.get()
+                val out = extension.outputFile.get() // Henter File direkte
 
-                // Kall din generator-logikk
-                TsGenerator.generate(pkg, out)
+                // Hent classpath for å lage ClassLoaderen
+                val mainSourceSet = project.extensions.getByType(JavaPluginExtension::class.java)
+                    .sourceSets.getByName("main")
+
+                val urls = mainSourceSet.runtimeClasspath.map { it.toURI().toURL() }.toTypedArray()
+                val cl = URLClassLoader(urls, TsGenerator::class.java.classLoader)
+
+
+                // Kall din signatur: generate(packageName, output, classLoader)
+                TsGenerator.generate(pkg, out, cl)
             }
         }
     }

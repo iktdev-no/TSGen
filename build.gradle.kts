@@ -13,6 +13,17 @@ repositories {
     mavenCentral()
 }
 
+gradlePlugin {
+    plugins {
+        create("tsGenerator") {
+            id = "no.iktdev.ts-gen"
+            implementationClass = "no.iktdev.tsgen.TsGeneratorPlugin"
+            // Denne er viktig for Gradle-menyen:
+            displayName = "TS Generator"
+            description = "Genererer TypeScript definisjoner fra Kotlin DTO-er"
+        }
+    }
+}
 
 
 dependencies {
@@ -20,6 +31,19 @@ dependencies {
     implementation("com.google.code.gson:gson:2.8.9")
     implementation(kotlin("reflect"))
     implementation(kotlin("stdlib"))
+
+    testImplementation("org.assertj:assertj-core:3.27.7")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+
+    // Bruk BOM for å styre alle JUnit-versjoner automatisk
+    testImplementation(platform("org.junit:junit-bom:5.10.2"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 kotlin {
@@ -34,28 +58,18 @@ val reposiliteUrl = if (version.toString().endsWith("SNAPSHOT")) {
 
 publishing {
     publications {
-        create<MavenPublication>("reposilite") {
-            artifactId = named
-            versionMapping {
-                usage("java-api") {
-                    fromResolutionOf("runtimeClasspath")
-                }
-                usage("java-runtime") {
-                    fromResolutionResult()
-                }
-            }
-            pom {
-                name.set(named)
-                version = project.version.toString()
-                url.set(reposiliteUrl)
-            }
-            from(components["kotlin"])
+        // 'pluginMaven' er den magiske tingen du trenger når du bruker java-gradle-plugin
+        create<MavenPublication>("plugin") {
+            from(components["java"])
+            groupId = "no.iktdev"
+            artifactId = "ts-gen" // Dette er navnet du refererer til
+            version = project.version.toString()
         }
     }
     repositories {
         mavenLocal()
         maven {
-            name = named
+            name = "reposilite"
             url = uri(reposiliteUrl)
             credentials {
                 username = System.getenv("reposiliteUsername")
