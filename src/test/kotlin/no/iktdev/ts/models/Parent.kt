@@ -18,3 +18,15 @@ interface BaseDevice {
 data class Camera(override val id: String, val resolution: Int) : BaseDevice
 
 enum class DeviceStatus { ONLINE, OFFLINE }
+
+
+abstract class AParent {
+    abstract val macAdress: String
+    abstract val interfaceName: String
+}
+
+data class AChild(
+    override val macAdress: String,
+    override val interfaceName: String,
+    val caps: List<String>
+) : AParent()

@@ -49,22 +49,26 @@ class TsModelRenderer {
         val typeParams = cls.typeParameters.map { it.name }
         val generic = if (typeParams.isNotEmpty()) "<" + typeParams.joinToString(", ") + ">" else ""
 
-        // 1. Bruk java.interfaces for å sikre at vi kun får reelle interfaces du selv har definert
-        // Filtrer bort tekniske ting som Serializable
+        // 1. Definer superklasser OG interfaces
+        val superClasses = mutableListOf<KClass<*>>()
+        val superClass = cls.java.superclass?.kotlin
+        if (superClass != null && superClass != Any::class) {
+            superClasses.add(superClass)
+        }
+
         val superInterfaces = cls.java.interfaces
             .map { it.kotlin }
             .filter { it.simpleName != "Any" && it.simpleName != "Serializable" }
 
-        // Debug: Se hva vi faktisk finner
-        // println("DEBUG: ${cls.simpleName} extends ${superInterfaces.map { it.simpleName }}")
+        superClasses.addAll(superInterfaces)
 
-        // 2. Lag "extends"-biten
-        val extendsClause = if (superInterfaces.isNotEmpty()) {
-            " extends ${superInterfaces.joinToString(", ") { it.simpleName!! }}"
+        // 2. FIX: Bruk superClasses i stedet for superInterfaces
+        val extendsClause = if (superClasses.isNotEmpty()) {
+            " extends ${superClasses.joinToString(", ") { it.simpleName!! }}"
         } else ""
 
-        // 3. Finn egenskaper som finnes i super-interfacer
-        val inheritedPropNames = superInterfaces.flatMap { it.memberProperties }.map { it.name }.toSet()
+        // 3. FIX: Bruk superClasses for å finne egenskaper som skal filtreres
+        val inheritedPropNames = superClasses.flatMap { it.memberProperties }.map { it.name }.toSet()
 
         val defaultTypeLiteral = getDefaultTypeLiteral(cls)
 
