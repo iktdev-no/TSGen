@@ -61,7 +61,7 @@ class TsModelRendererTest {
             // 1. Verifiser at hovedklassen blir et interface + union-type
             val unionTs = renderer.sealedUnionToTs(ASealedDevice::class, SealedStrategy.AS_INTERFACE_WITH_TYPE)
             assertThat(unionTs).contains("export interface ASealedDevice")
-            assertThat(unionTs).contains("export type ASealedDeviceType = Actuator | Sensor")
+            assertThat(unionTs).contains("export type ASealedDeviceRef = Actuator | Sensor")
 
             // 2. Verifiser at subtypen får type-discriminator og arver baseklassen
             val sensorTs = renderer.sealedSubtypeToTs(Sensor::class, SealedStrategy.AS_INTERFACE_WITH_TYPE, "ASealedDevice")
@@ -89,7 +89,7 @@ class TsModelRendererTest {
             // 1. Verifiser at AS_INTERFACE lager base-interface og union-type
             val unionTs = renderer.sealedUnionToTs(ASealedDevice::class, SealedStrategy.AS_INTERFACE)
             assertThat(unionTs).contains("export interface ASealedDevice")
-            assertThat(unionTs).contains("export type ASealedDeviceType = Actuator | Sensor")
+            assertThat(unionTs).contains("export type ASealedDeviceRef = Actuator | Sensor")
 
             // 2. Verifiser at subtypen arver baseklassen, men IKKE har automatisk type-discriminator
             val sensorTs = renderer.sealedSubtypeToTs(Sensor::class, SealedStrategy.AS_INTERFACE, "ASealedDevice")
