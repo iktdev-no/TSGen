@@ -34,18 +34,6 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: ls -la
 
-      - name: Set library version
-        working-directory: ${{ github.workspace }}
-        run: |
-          if [ -n "${{ github.event.release.tag_name }}" ]; then
-            version=$(echo ${{ github.event.release.tag_name }} | sed 's/^v//')
-            sed -i "s/version = \".*\"/version = \"$version\"/g" build.gradle.kts
-            grep -o "version = \"$version\"" build.gradle.kts
-          else
-            echo "No release tag found. Skipping library version update."
-          fi
-
-
       - name: Initialize Gradle wrapper
         run: ./gradlew wrapper
 
