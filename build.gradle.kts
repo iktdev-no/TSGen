@@ -107,7 +107,7 @@ publishing {
             if (name == "pluginMaven") {
                 groupId = "no.iktdev"
                 artifactId = "ts-gen"
-                version = dynamicVersion
+                version = project.version.toString()
             }
         }
     }

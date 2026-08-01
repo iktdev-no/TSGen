@@ -32,7 +32,7 @@ class TsModelRenderer {
         val inheritedPropNames = superClasses.flatMap { it.memberProperties }.map { it.name }.toSet()
 
         val baseInterface = buildInterfaceString(cls, inheritedPropNames, extendsClause, null)
-        val unionType = "export type ${cls.simpleName}Type = $subTypes\n"
+        val unionType = "export type ${cls.simpleName}Ref = $subTypes\n"
 
         return listOf(baseInterface, unionType).filter { it.isNotBlank() }.joinToString("\n")
     }
