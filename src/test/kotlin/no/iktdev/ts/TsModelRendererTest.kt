@@ -11,11 +11,10 @@ import org.junit.jupiter.api.Test
 class TsModelRendererTest {
 
     private val renderer = TsModelRenderer()
-    private val ttm = TsTypeMapper()
 
     @Test
     fun `should maintain exact property names without renaming`() {
-        val result = renderer.dataClassToTs(Fancy::class, ttm, true)
+        val result = renderer.dataClassToTs(Fancy::class)
 
         // Sjekk at "isFancy" ikke ble endret til "fancy"
         assertThat(result).contains("isFancy: boolean;")
@@ -28,7 +27,7 @@ class TsModelRendererTest {
     @Test
     fun `full test - verifiser arv, typer og union`() {
         // 1. Test Interface Arv
-        val cameraTs = renderer.dataClassToTs(Camera::class, ttm, true)
+        val cameraTs = renderer.dataClassToTs(Camera::class)
 
         assertThat(cameraTs).contains("interface Camera extends BaseDevice")
         assertThat(cameraTs).contains("resolution: number;")
@@ -43,24 +42,62 @@ class TsModelRendererTest {
     fun `should handle generic classes correctly`() {
         data class Wrapper<T>(val data: T, val message: String?)
 
-        val result = renderer.dataClassToTs(Wrapper::class, ttm, true)
+        val result = renderer.dataClassToTs(Wrapper::class)
 
         assertThat(result).contains("export interface Wrapper<T>")
         assertThat(result).contains("data: T;")
         assertThat(result).contains("message: string | null;")
     }
 
-    @Test
-    fun `sealed subtype test - verifiser type discriminator`() {
-        data class Sensor(val type: String = "TEMP_SENSOR", val value: Double)
+    class TsModelRendererTest {
+        private val renderer = TsModelRenderer()
 
-        // Bruker dataClassToTs direkte ettersom sealed subtyper nå bruker denne metoden
-        val sensorTs = renderer.dataClassToTs(Sensor::class, ttm, includeTypedInterface = true)
+        sealed class ASealedDevice
+        data class Sensor(val value: Double) : ASealedDevice()
+        data class Actuator(val active: Boolean) : ASealedDevice()
 
-        assertThat(sensorTs).contains("type: \"Sensor\";")
-        assertThat(sensorTs).contains("value: number;")
+        @Test
+        fun `sealed union and subtypes - AS_INTERFACE_WITH_TYPE`() {
+            // 1. Verifiser at hovedklassen blir et interface + union-type
+            val unionTs = renderer.sealedUnionToTs(ASealedDevice::class, SealedStrategy.AS_INTERFACE_WITH_TYPE)
+            assertThat(unionTs).contains("export interface ASealedDevice")
+            assertThat(unionTs).contains("export type ASealedDeviceType = Actuator | Sensor")
+
+            // 2. Verifiser at subtypen får type-discriminator og arver baseklassen
+            val sensorTs = renderer.sealedSubtypeToTs(Sensor::class, SealedStrategy.AS_INTERFACE_WITH_TYPE, "ASealedDevice")
+            assertThat(sensorTs).contains("export interface Sensor extends ASealedDevice")
+            assertThat(sensorTs).contains("type: \"Sensor\";")
+            assertThat(sensorTs).contains("value: number;")
+        }
+
+        @Test
+        fun `sealed union and subtypes - ONLY_TYPED`() {
+            // 1. Verifiser at ONLY_TYPED kun lager en ren union-type for hovedklassen
+            val unionTs = renderer.sealedUnionToTs(ASealedDevice::class, SealedStrategy.ONLY_TYPED)
+            assertThat(unionTs).isEqualTo("export type ASealedDevice = Actuator | Sensor\n")
+
+            // 2. Verifiser at subtypen IKKE får type-discriminator eller extends-klausul når baseName er null
+            val sensorTs = renderer.sealedSubtypeToTs(Sensor::class, SealedStrategy.ONLY_TYPED, null)
+            assertThat(sensorTs).doesNotContain("type:")
+            assertThat(sensorTs).doesNotContain("extends")
+            assertThat(sensorTs).contains("export interface Sensor {")
+            assertThat(sensorTs).contains("value: number;")
+        }
+
+        @Test
+        fun `sealed union and subtypes - AS_INTERFACE`() {
+            // 1. Verifiser at AS_INTERFACE lager base-interface og union-type
+            val unionTs = renderer.sealedUnionToTs(ASealedDevice::class, SealedStrategy.AS_INTERFACE)
+            assertThat(unionTs).contains("export interface ASealedDevice")
+            assertThat(unionTs).contains("export type ASealedDeviceType = Actuator | Sensor")
+
+            // 2. Verifiser at subtypen arver baseklassen, men IKKE har automatisk type-discriminator
+            val sensorTs = renderer.sealedSubtypeToTs(Sensor::class, SealedStrategy.AS_INTERFACE, "ASealedDevice")
+            assertThat(sensorTs).contains("export interface Sensor extends ASealedDevice")
+            assertThat(sensorTs).doesNotContain("type:")
+            assertThat(sensorTs).contains("value: number;")
+        }
     }
-
     @Test
     fun `should generate string literal union for enums`() {
         val result = renderer.enumToTs(DeviceStatus::class)
@@ -73,7 +110,7 @@ class TsModelRendererTest {
         open class Base(val id: String)
         data class EmptySub(val type: String = "EmptySub") : Base("123")
 
-        val result = renderer.dataClassToTs(EmptySub::class, ttm, true)
+        val result = renderer.dataClassToTs(EmptySub::class)
 
         assertThat(result).contains("export interface EmptySub extends Base")
         assertThat(result).contains("type: \"EmptySub\";")
@@ -84,7 +121,7 @@ class TsModelRendererTest {
         data class SubItem(val code: String)
         data class Container(val items: List<SubItem>)
 
-        val result = renderer.dataClassToTs(Container::class, ttm, false)
+        val result = renderer.dataClassToTs(Container::class)
 
         assertThat(result).contains("items: SubItem[];")
     }
@@ -94,7 +131,7 @@ class TsModelRendererTest {
         open class Parent(val id: String, val createdAt: String)
         data class Child(val name: String, val age: Int) : Parent("default-id", "now")
 
-        val result = renderer.dataClassToTs(Child::class, ttm, false)
+        val result = renderer.dataClassToTs(Child::class)
 
         assertThat(result).contains("extends Parent")
         assertThat(result).contains("name: string;")
@@ -109,7 +146,7 @@ class TsModelRendererTest {
         data class Sensor(val type: String = "TEMP_SENSOR", val value: Double)
 
         // Tester med false for å verifisere at type-lappen utelates
-        val sensorTs = renderer.dataClassToTs(Sensor::class, ttm, includeTypedInterface = false)
+        val sensorTs = renderer.dataClassToTs(Sensor::class)
 
         assertThat(sensorTs).doesNotContain("type: \"Sensor\";")
         assertThat(sensorTs).contains("value: number;")
@@ -118,7 +155,7 @@ class TsModelRendererTest {
     @Test
     fun `should correctly extend abstract class and avoid duplicated properties`() {
         // 1. Generer TypeScript fra dummy-klassen
-        val result = renderer.dataClassToTs(AChild::class, ttm, true)
+        val result = renderer.dataClassToTs(AChild::class)
 
         // 2. Verifiser at den utvider den abstrakte klassen
         assertThat(result).contains("extends AParent")

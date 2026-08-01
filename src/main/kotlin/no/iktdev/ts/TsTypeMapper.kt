@@ -1,6 +1,6 @@
 package no.iktdev.ts
 
-class TsTypeMapper {
+object TsTypeMapper {
     fun kotlinToTsType(kotlinType: String, genericParams: List<String> = emptyList()): String {
         val isNullable = kotlinType.endsWith("?")
         // Fjerner eventuelle backticks som Kotlin legger rundt lokale/test-klasser, og trimmet

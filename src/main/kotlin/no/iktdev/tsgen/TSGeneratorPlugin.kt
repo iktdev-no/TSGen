@@ -1,5 +1,6 @@
 package no.iktdev.tsgen
 
+import no.iktdev.ts.SealedStrategy
 import no.iktdev.ts.TsGenerator
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -12,15 +13,13 @@ interface TsGeneratorExtension {
     val packageName: Property<String>
     val outputFile: Property<File>
 
-    val includeTypedSealed: Property<Boolean>
-    val includeTypedInterface: Property<Boolean>
+    val sealedStrategy: Property<SealedStrategy>
 }
 
 class TsGeneratorPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val extension = project.extensions.create("tsGenerator", TsGeneratorExtension::class.java).apply {
-            includeTypedSealed.convention(false)
-            includeTypedInterface.convention(false)
+            sealedStrategy.convention(SealedStrategy.AS_INTERFACE_WITH_TYPE)
         }
 
         project.tasks.register("generateTs") {
@@ -32,8 +31,7 @@ class TsGeneratorPlugin : Plugin<Project> {
 
                 val pkg = extension.packageName.get()
                 val out = extension.outputFile.get()
-                val includeTypedSealed = extension.includeTypedSealed.get()
-                val includeTypedInterface = extension.includeTypedInterface.get()
+                val writeSealedStrategy = extension.sealedStrategy.get()
 
                 // Hent classpath for å lage ClassLoaderen
                 val mainSourceSet = project.extensions.getByType(JavaPluginExtension::class.java)
@@ -43,7 +41,7 @@ class TsGeneratorPlugin : Plugin<Project> {
                 val cl = URLClassLoader(urls, TsGenerator::class.java.classLoader)
 
                 // Kall generatoren med det nye flagget
-                TsGenerator.generate(pkg, out, cl, includeTypedSealed, includeTypedInterface)
+                TsGenerator.generate(pkg, out, cl, writeSealedStrategy)
             }
         }
     }

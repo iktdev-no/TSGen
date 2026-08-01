@@ -5,18 +5,16 @@ import java.io.File
 object TsGenerator {
     var versionInfo: String = System.getProperty("tsgenerator.version")
         ?: TsGenerator::class.java.getPackage()?.implementationVersion
-        ?: "dev"
+        ?: "any"
     var buildTime: String = java.time.Instant.now().toString()
 
-    val ttm = TsTypeMapper()
     val tmr = TsModelRenderer()
 
     fun generate(
         packageName: String,
         output: File,
         classLoader: ClassLoader = Thread.currentThread().contextClassLoader,
-        includeTypedSealed: Boolean = true,
-        includeTypedInterface: Boolean = true
+        writeSealedStrategy: SealedStrategy,
     ) {
         println("TsGenerator: scanning package: $packageName")
 
@@ -35,28 +33,37 @@ object TsGenerator {
             classes.forEach { cls ->
                 when {
                     // ----------------------------------------------------
-                    // 1) Sealed interface → union type alias
+                    // 1) Sealed interface → union type alias + evt. base interface
                     // ----------------------------------------------------
                     cls.isSealed && cls.java.isInterface -> {
-                        println("Generating union type for sealed interface: ${cls.simpleName}")
-                        append(tmr.sealedUnionToTs(cls))
+                        println("Generating sealed interface: ${cls.simpleName}")
+                        append(tmr.sealedUnionToTs(cls, writeSealedStrategy))
                     }
 
                     // ----------------------------------------------------
-                    // 1a) Sealed class → union type alias
+                    // 1a) Sealed class → union type alias + evt. base interface
                     // ----------------------------------------------------
                     cls.isSealed && !cls.java.isInterface -> {
-                        println("Generating union type for sealed class: ${cls.simpleName}")
-                        append(tmr.sealedUnionToTs(cls))
+                        println("Generating sealed class: ${cls.simpleName}")
+                        append(tmr.sealedUnionToTs(cls, writeSealedStrategy))
                     }
 
                     // ----------------------------------------------------
                     // 1b) Sealed subtype (data object / data class)
-                    //     → Bruker includeTypedSealed for type-lappen
+                    //     Sjekker strategien for type-felt og extends-base
                     // ----------------------------------------------------
                     cls.isSealedSubtype() -> {
                         println("Generating sealed subtype interface: ${cls.simpleName}")
-                        append(tmr.dataClassToTs(cls, ttm, includeTypedSealed))
+
+                        // Finn baseklassen/interfacet hvis strategien tillater det
+                        val baseName = if (writeSealedStrategy != SealedStrategy.ONLY_TYPED) {
+                            cls.java.superclass?.kotlin?.takeIf { it.isSealed }?.simpleName
+                                ?: cls.java.interfaces.map { it.kotlin }.firstOrNull { it.isSealed }?.simpleName
+                        } else {
+                            null
+                        }
+
+                        append(tmr.sealedSubtypeToTs(cls, writeSealedStrategy, baseName))
                     }
 
                     // ----------------------------------------------------
@@ -68,12 +75,11 @@ object TsGenerator {
                     }
 
                     // ----------------------------------------------------
-                    // 3) Data class → interface
-                    //     → Bruker includeTypedInterface for type-lappen
+                    // 3) Data class → interface (vanlige klasser)
                     // ----------------------------------------------------
                     cls.hasProperties() && !cls.isSealed -> {
                         println("Generating interface: ${cls.simpleName}")
-                        append(tmr.dataClassToTs(cls, ttm, includeTypedInterface))
+                        append(tmr.dataClassToTs(cls))
                     }
 
                     else -> {
