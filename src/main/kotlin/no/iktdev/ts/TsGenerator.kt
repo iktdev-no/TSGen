@@ -3,13 +3,26 @@ package no.iktdev.ts
 import java.io.File
 
 object TsGenerator {
-    var versionInfo: String = "unknown"
+    var consumerAppVersionInfo: String = "unknown"
+    var versionInfo: String = TsGenerator::class.java.getPackage()?.implementationVersion
+        ?: TsGenerator::class.java.getResource("/META-INF/MANIFEST.MF")?.let {
+            // Alternativ fallback hvis du vil lese manifest-streamen direkte,
+            // men pakke-sjekken under dekker de fleste tilfeller når den er bygget.
+            null
+        }
+        ?: "1.0.0" // Hardkodet fallback eller "unknown"
     var buildTime: String = java.time.Instant.now().toString()
 
     val ttm = TsTypeMapper()
     val tmr = TsModelRenderer()
 
-    fun generate(packageName: String, output: File, classLoader: ClassLoader = Thread.currentThread().contextClassLoader) {
+    fun generate(
+        packageName: String,
+        output: File,
+        classLoader: ClassLoader = Thread.currentThread().contextClassLoader,
+        includeSealed: Boolean = true,
+        includeInterface: Boolean = true
+    ) {
         println("TsGenerator: scanning package: $packageName")
 
         val classes = ClassScanner().scan(packageName, classLoader)
@@ -19,7 +32,8 @@ object TsGenerator {
 
         val ts = buildString {
             appendLine("// AUTO-GENERATED. DO NOT EDIT.")
-            appendLine("// Version: $versionInfo")
+            appendLine("// TSGenerator Version: $versionInfo")
+            appendLine("// Consumer App Version: $consumerAppVersionInfo")
             appendLine("// Time: $buildTime")
             appendLine("// Source: $packageName")
             appendLine()
@@ -55,7 +69,7 @@ object TsGenerator {
                     // ----------------------------------------------------
                     cls.isSealedSubtype() -> {
                         println("Generating sealed subtype interface: ${cls.simpleName}")
-                        append(tmr.sealedSubtypeToTs(cls))
+                        append(tmr.sealedSubtypeToTs(cls, ttm, includeSealed))
                     }
 
                     // ----------------------------------------------------
@@ -71,7 +85,7 @@ object TsGenerator {
                     // ----------------------------------------------------
                     cls.hasProperties() && !cls.isSealed -> {
                         println("Generating interface: ${cls.simpleName}")
-                        append(tmr.dataClassToTs(cls, ttm))
+                        append(tmr.dataClassToTs(cls, ttm, includeInterface))
                     }
 
                     else -> {

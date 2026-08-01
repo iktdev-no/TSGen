@@ -15,7 +15,7 @@ class TsModelRendererTest {
 
     @Test
     fun `should maintain exact property names without renaming`() {
-        val result = renderer.dataClassToTs(Fancy::class, ttm)
+        val result = renderer.dataClassToTs(Fancy::class, ttm, true)
 
         // Sjekk at "isFancy" ikke ble endret til "fancy"
         assertThat(result).contains("isFancy: boolean;")
@@ -28,7 +28,7 @@ class TsModelRendererTest {
     @Test
     fun `full test - verifiser arv, typer og union`() {
         // 1. Test Interface Arv
-        val cameraTs = renderer.dataClassToTs(Camera::class, ttm)
+        val cameraTs = renderer.dataClassToTs(Camera::class, ttm, true)
 
         assertThat(cameraTs).contains("interface Camera extends BaseDevice")
         assertThat(cameraTs).contains("resolution: number;")
@@ -41,19 +41,30 @@ class TsModelRendererTest {
 
     @Test
     fun `sealed subtype test - verifiser type discriminator`() {
-        // La oss si vi har en klasse som bruker sealed-logikken din
         data class Sensor(val type: String = "TEMP_SENSOR", val value: Double)
 
-        val sensorTs = renderer.sealedSubtypeToTs(Sensor::class)
+        // Send med true for å inkludere type-diskriminatoren i testen
+        val sensorTs = renderer.sealedSubtypeToTs(Sensor::class, ttm, includeTypeDiscriminator = true)
 
         assertThat(sensorTs).contains("type: \"Sensor\";")
         assertThat(sensorTs).contains("value: number;")
     }
 
     @Test
+    fun `sealed subtype test - no type when off`() {
+        data class Sensor(val type: String = "TEMP_SENSOR", val value: Double)
+
+        // Send med true for å inkludere type-diskriminatoren i testen
+        val sensorTs = renderer.sealedSubtypeToTs(Sensor::class, ttm, includeTypeDiscriminator = false)
+
+        assertThat(sensorTs).doesNotContain("type: \"Sensor\";")
+        assertThat(sensorTs).contains("value: number;")
+    }
+
+    @Test
     fun `should correctly extend abstract class and avoid duplicated properties`() {
         // 1. Generer TypeScript fra dummy-klassen
-        val result = renderer.dataClassToTs(AChild::class, ttm)
+        val result = renderer.dataClassToTs(AChild::class, ttm, true)
 
         // 2. Verifiser at den utvider den abstrakte klassen
         assertThat(result).contains("extends AParent")

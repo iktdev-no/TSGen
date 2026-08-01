@@ -11,11 +11,17 @@ import java.net.URLClassLoader
 interface TsGeneratorExtension {
     val packageName: Property<String>
     val outputFile: Property<File>
+
+    val includeSealed: Property<Boolean>
+    val includeInterface: Property<Boolean>
 }
 
 class TsGeneratorPlugin : Plugin<Project> {
     override fun apply(project: Project) {
-        val extension = project.extensions.create("tsGenerator", TsGeneratorExtension::class.java)
+        val extension = project.extensions.create("tsGenerator", TsGeneratorExtension::class.java).apply {
+            includeSealed.convention(true)
+            includeInterface.convention(true)
+        }
 
         project.tasks.register("generateTs") {
             group = "typescript"
@@ -26,7 +32,9 @@ class TsGeneratorPlugin : Plugin<Project> {
                 TsGenerator.buildTime = java.time.Instant.now().toString()
 
                 val pkg = extension.packageName.get()
-                val out = extension.outputFile.get() // Henter File direkte
+                val out = extension.outputFile.get()
+                val includeSealed = extension.includeSealed.get()
+                val includeInterface = extension.includeInterface.get()
 
                 // Hent classpath for å lage ClassLoaderen
                 val mainSourceSet = project.extensions.getByType(JavaPluginExtension::class.java)
@@ -35,9 +43,8 @@ class TsGeneratorPlugin : Plugin<Project> {
                 val urls = mainSourceSet.runtimeClasspath.map { it.toURI().toURL() }.toTypedArray()
                 val cl = URLClassLoader(urls, TsGenerator::class.java.classLoader)
 
-
-                // Kall din signatur: generate(packageName, output, classLoader)
-                TsGenerator.generate(pkg, out, cl)
+                // Kall generatoren med det nye flagget
+                TsGenerator.generate(pkg, out, cl, includeSealed, includeInterface)
             }
         }
     }

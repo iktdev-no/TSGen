@@ -62,6 +62,19 @@ dependencies {
 
 }
 
+tasks.jar {
+    manifest {
+        attributes(
+            "Implementation-Title" to project.name,
+            // Bruk en provider for å hente dynamisk versjon, slik at den ikke blir fastlåst til "1.0-SNAPSHOT"
+            "Implementation-Version" to provider {
+                // Hvis du har definert dynamicVersion som en lokal val, kan du kalle .get() på den her:
+                dynamicVersion.get()
+            }
+        )
+    }
+}
+
 tasks.test {
     useJUnitPlatform()
 }
