@@ -5,10 +5,6 @@ plugins {
     `kotlin-dsl`
 }
 
-group = "no.iktdev"
-version = "1.0-SNAPSHOT"
-val named = "ts-gen"
-
 val dynamicVersion = providers.provider {
     val ref = System.getenv("GITHUB_REF") ?: ""
     val isSnapshot = ref.endsWith("/master") || ref.endsWith("/main")
@@ -28,6 +24,11 @@ val dynamicVersion = providers.provider {
         latestTag
     }
 }
+
+group = "no.iktdev"
+version = dynamicVersion.get()
+val named = "ts-gen"
+
 
 repositories {
     mavenCentral()
@@ -62,18 +63,6 @@ dependencies {
 
 }
 
-tasks.jar {
-    manifest {
-        attributes(
-            "Implementation-Title" to project.name,
-            // Bruk en provider for å hente dynamisk versjon, slik at den ikke blir fastlåst til "1.0-SNAPSHOT"
-            "Implementation-Version" to provider {
-                // Hvis du har definert dynamicVersion som en lokal val, kan du kalle .get() på den her:
-                dynamicVersion.get()
-            }
-        )
-    }
-}
 
 tasks.test {
     useJUnitPlatform()

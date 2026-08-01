@@ -12,29 +12,28 @@ interface TsGeneratorExtension {
     val packageName: Property<String>
     val outputFile: Property<File>
 
-    val includeSealed: Property<Boolean>
-    val includeInterface: Property<Boolean>
+    val includeTypedSealed: Property<Boolean>
+    val includeTypedInterface: Property<Boolean>
 }
 
 class TsGeneratorPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val extension = project.extensions.create("tsGenerator", TsGeneratorExtension::class.java).apply {
-            includeSealed.convention(true)
-            includeInterface.convention(true)
+            includeTypedSealed.convention(false)
+            includeTypedInterface.convention(false)
         }
 
         project.tasks.register("generateTs") {
             group = "typescript"
             dependsOn("compileKotlin")
-
             doLast {
                 TsGenerator.versionInfo = project.version.toString()
                 TsGenerator.buildTime = java.time.Instant.now().toString()
 
                 val pkg = extension.packageName.get()
                 val out = extension.outputFile.get()
-                val includeSealed = extension.includeSealed.get()
-                val includeInterface = extension.includeInterface.get()
+                val includeTypedSealed = extension.includeTypedSealed.get()
+                val includeTypedInterface = extension.includeTypedInterface.get()
 
                 // Hent classpath for å lage ClassLoaderen
                 val mainSourceSet = project.extensions.getByType(JavaPluginExtension::class.java)
@@ -44,7 +43,7 @@ class TsGeneratorPlugin : Plugin<Project> {
                 val cl = URLClassLoader(urls, TsGenerator::class.java.classLoader)
 
                 // Kall generatoren med det nye flagget
-                TsGenerator.generate(pkg, out, cl, includeSealed, includeInterface)
+                TsGenerator.generate(pkg, out, cl, includeTypedSealed, includeTypedInterface)
             }
         }
     }

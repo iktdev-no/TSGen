@@ -3,14 +3,9 @@ package no.iktdev.ts
 import java.io.File
 
 object TsGenerator {
-    var consumerAppVersionInfo: String = "unknown"
-    var versionInfo: String = TsGenerator::class.java.getPackage()?.implementationVersion
-        ?: TsGenerator::class.java.getResource("/META-INF/MANIFEST.MF")?.let {
-            // Alternativ fallback hvis du vil lese manifest-streamen direkte,
-            // men pakke-sjekken under dekker de fleste tilfeller når den er bygget.
-            null
-        }
-        ?: "1.0.0" // Hardkodet fallback eller "unknown"
+    var versionInfo: String = System.getProperty("tsgenerator.version")
+        ?: TsGenerator::class.java.getPackage()?.implementationVersion
+        ?: "dev"
     var buildTime: String = java.time.Instant.now().toString()
 
     val ttm = TsTypeMapper()
@@ -20,8 +15,8 @@ object TsGenerator {
         packageName: String,
         output: File,
         classLoader: ClassLoader = Thread.currentThread().contextClassLoader,
-        includeSealed: Boolean = true,
-        includeInterface: Boolean = true
+        includeTypedSealed: Boolean = true,
+        includeTypedInterface: Boolean = true
     ) {
         println("TsGenerator: scanning package: $packageName")
 
@@ -33,7 +28,6 @@ object TsGenerator {
         val ts = buildString {
             appendLine("// AUTO-GENERATED. DO NOT EDIT.")
             appendLine("// TSGenerator Version: $versionInfo")
-            appendLine("// Consumer App Version: $consumerAppVersionInfo")
             appendLine("// Time: $buildTime")
             appendLine("// Source: $packageName")
             appendLine()
@@ -44,32 +38,25 @@ object TsGenerator {
                     // 1) Sealed interface → union type alias
                     // ----------------------------------------------------
                     cls.isSealed && cls.java.isInterface -> {
-                        val subTypes = cls.sealedSubclasses
-                            .mapNotNull { it.simpleName }
-                            .joinToString(" | ")
-
-                        println("Generating union type for sealed interface: ${cls.simpleName} = $subTypes")
-                        appendLine("export type ${cls.simpleName} = $subTypes")
+                        println("Generating union type for sealed interface: ${cls.simpleName}")
+                        append(tmr.sealedUnionToTs(cls))
                     }
 
+                    // ----------------------------------------------------
                     // 1a) Sealed class → union type alias
+                    // ----------------------------------------------------
                     cls.isSealed && !cls.java.isInterface -> {
-                        val subTypes = cls.sealedSubclasses
-                            .mapNotNull { it.simpleName }
-                            .joinToString(" | ")
-
-                        println("Generating union type for sealed class: ${cls.simpleName} = $subTypes")
-                        appendLine("export type ${cls.simpleName} = $subTypes")
+                        println("Generating union type for sealed class: ${cls.simpleName}")
+                        append(tmr.sealedUnionToTs(cls))
                     }
-
 
                     // ----------------------------------------------------
                     // 1b) Sealed subtype (data object / data class)
-                    //     → generer interface selv uten properties
+                    //     → Bruker includeTypedSealed for type-lappen
                     // ----------------------------------------------------
                     cls.isSealedSubtype() -> {
                         println("Generating sealed subtype interface: ${cls.simpleName}")
-                        append(tmr.sealedSubtypeToTs(cls, ttm, includeSealed))
+                        append(tmr.dataClassToTs(cls, ttm, includeTypedSealed))
                     }
 
                     // ----------------------------------------------------
@@ -82,10 +69,11 @@ object TsGenerator {
 
                     // ----------------------------------------------------
                     // 3) Data class → interface
+                    //     → Bruker includeTypedInterface for type-lappen
                     // ----------------------------------------------------
                     cls.hasProperties() && !cls.isSealed -> {
                         println("Generating interface: ${cls.simpleName}")
-                        append(tmr.dataClassToTs(cls, ttm, includeInterface))
+                        append(tmr.dataClassToTs(cls, ttm, includeTypedInterface))
                     }
 
                     else -> {
@@ -101,5 +89,4 @@ object TsGenerator {
 
         println("TsGenerator: wrote file to ${output.absolutePath}")
     }
-
 }

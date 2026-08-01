@@ -2,7 +2,6 @@ package no.iktdev.ts
 
 import kotlin.reflect.KClass
 import kotlin.reflect.full.memberProperties
-import kotlin.reflect.full.primaryConstructor
 
 class TsModelRenderer {
 
@@ -13,11 +12,21 @@ class TsModelRenderer {
         return "export type ${cls.simpleName} = $values\n"
     }
 
-    fun sealedSubtypeToTs(cls: KClass<*>, ttm: TsTypeMapper, includeTypeDiscriminator: Boolean): String {
-        return dataClassToTs(cls, ttm, includeTypeDiscriminator)
+    // Genererer union-typen for sealed klasser (f.eks. export type Progress = A | B | C)
+    fun sealedUnionToTs(cls: KClass<*>): String {
+        val subTypes = cls.sealedSubclasses
+            .mapNotNull { it.simpleName }
+            .joinToString(" | ")
+
+        return "export type ${cls.simpleName} = $subTypes\n"
     }
 
-    fun dataClassToTs(cls: KClass<*>, ttm: TsTypeMapper, includeTypeDiscriminator: Boolean): String {
+    // Genererer standard interface for klasser/subtyper
+    fun dataClassToTs(
+        cls: KClass<*>,
+        ttm: TsTypeMapper,
+        includeTypedInterface: Boolean
+    ): String {
         val typeParams = cls.typeParameters.map { it.name }
         val generic = if (typeParams.isNotEmpty()) "<" + typeParams.joinToString(", ") + ">" else ""
 
@@ -34,19 +43,18 @@ class TsModelRenderer {
         superClasses.addAll(superInterfaces)
 
         val extendsClause = if (superClasses.isNotEmpty()) {
-            " extends ${superClasses.joinToString(", ") { it.simpleName!! }}"
+            " extends " + superClasses.joinToString(", ") { it.simpleName!! }
         } else ""
 
         val inheritedPropNames = superClasses.flatMap { it.memberProperties }.map { it.name }.toSet()
-
-        // Sjekk om klassen har et 'type'-felt, og tving det til klassens navn hvis flagget er satt
         val hasTypeProp = cls.memberProperties.any { it.name == "type" }
 
         val props = cls.memberProperties
             .filter { it.name !in inheritedPropNames }
             .joinToString("\n") { prop ->
-                val tsType = if (prop.name == "type" && includeTypeDiscriminator) {
-                    // Tving type-feltet til å bli en string literal basert på klassens navn (f.eks. "FileCopyProgress")
+                // HVIS feltet heter "type" og vi har slått på includeTypedInterface,
+                // tvinger vi type-definisjonen til å bli klassens navn som en string-literal!
+                val tsType = if (prop.name == "type" && includeTypedInterface) {
                     "\"${cls.simpleName}\""
                 } else {
                     ttm.kotlinToTsType(prop.returnType.toString(), typeParams)
@@ -56,10 +64,12 @@ class TsModelRenderer {
 
         return buildString {
             appendLine("export interface ${cls.simpleName}$generic$extendsClause {")
-            // Hvis klassen ikke har 'type'-felt i det hele tatt, men skal ha diskriminator, legg til den
-            if (includeTypeDiscriminator && !hasTypeProp && "type" !in inheritedPropNames) {
+
+            // Hvis klassen IKKE hadde "type"-felt fra før, men flagget er på, legger vi til lappen her
+            if (includeTypedInterface && !hasTypeProp && "type" !in inheritedPropNames) {
                 appendLine("  type: \"${cls.simpleName}\";")
             }
+
             if (props.isNotBlank()) appendLine(props)
             appendLine("}")
         }

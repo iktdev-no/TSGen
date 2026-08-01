@@ -3,7 +3,13 @@ package no.iktdev.ts
 class TsTypeMapper {
     fun kotlinToTsType(kotlinType: String, genericParams: List<String> = emptyList()): String {
         val isNullable = kotlinType.endsWith("?")
-        val clean = kotlinType.removeSuffix("?")
+        // Fjerner eventuelle backticks som Kotlin legger rundt lokale/test-klasser, og trimmet
+        val clean = kotlinType.removeSuffix("?").replace("`", "").trim()
+
+        // Sjekk om typen er en generisk parameter (f.eks. "T")
+        if (genericParams.contains(clean)) {
+            return if (isNullable) "$clean | null" else clean
+        }
 
         // UUID → string
         if (clean == "java.util.UUID") {
@@ -66,7 +72,7 @@ class TsTypeMapper {
             return if (isNullable) "$base | null" else base
         }
 
-        // Primitive mappings
+        // Primitive mappings / Klasser
         val base = when (clean) {
             "kotlin.String" -> "string"
             "kotlin.Int",
@@ -76,8 +82,8 @@ class TsTypeMapper {
             "kotlin.Boolean" -> "boolean"
             "kotlin.Any" -> "any"
             else -> {
-                if (clean.contains(".")) clean.substringAfterLast(".")
-                else "any"
+                // Stripper vekk alt av pakkenavn og eventuelle lokale test-referanser med $
+                clean.substringAfterLast(".").substringAfterLast("$")
             }
         }
 
