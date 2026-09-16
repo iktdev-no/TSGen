@@ -1,7 +1,11 @@
 package no.iktdev.ts
 
 object TsTypeMapper {
-    fun kotlinToTsType(kotlinType: String, genericParams: List<String> = emptyList()): String {
+    fun kotlinToTsType(
+        kotlinType: String,
+        genericParams: List<String> = emptyList(),
+        mapStrategy: MapStrategy = MapStrategy.MapAsRecord,
+    ): String {
         val isNullable = kotlinType.endsWith("?")
         // Fjerner eventuelle backticks som Kotlin legger rundt lokale/test-klasser, og trimmet
         val clean = kotlinType.removeSuffix("?").replace("`", "").trim()
@@ -26,7 +30,7 @@ object TsTypeMapper {
             return if (isNullable) "string | null" else "string"
         }
 
-        // Map<K, V> → Record<K, V>
+        // Map<K, V> → Record<K, V> / Partial<Record<K, V>>
         if (clean.startsWith("kotlin.collections.Map") ||
             clean.startsWith("kotlin.collections.MutableMap")) {
 
@@ -36,7 +40,13 @@ object TsTypeMapper {
             val tsKey = kotlinToTsType(key, genericParams)
             val tsValue = kotlinToTsType(value, genericParams)
 
-            val base = "Record<$tsKey, $tsValue>"
+            val record = "Record<$tsKey, $tsValue>"
+
+            val base = when (mapStrategy) {
+                MapStrategy.MapAsRecord -> record
+                MapStrategy.MapAsPartialRecord -> "Partial<$record>"
+            }
+
             return if (isNullable) "$base | null" else base
         }
 

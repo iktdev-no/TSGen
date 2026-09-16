@@ -1,6 +1,8 @@
 package no.iktdev.ts
 
+import no.iktdev.ts.anno.TsMapStrategy
 import kotlin.reflect.KClass
+import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.full.primaryConstructor
 
@@ -111,10 +113,17 @@ class TsModelRenderer {
             .filter { it.name !in inheritedPropNames }
             .filter { forcedTypeLiteral == null || it.name != "type" }
             .joinToString("\n") { prop ->
+                val mapStrategy = prop.findAnnotation<TsMapStrategy>()?.value
+                    ?: MapStrategy.MapAsRecord
+
                 val tsType = if (prop.name == "type" && defaultTypeLiteral != null) {
                     "\"$defaultTypeLiteral\""
                 } else {
-                    TsTypeMapper.kotlinToTsType(prop.returnType.toString(), typeParams)
+                    TsTypeMapper.kotlinToTsType(
+                        prop.returnType.toString(),
+                        typeParams,
+                        mapStrategy
+                    )
                 }
                 "  ${prop.name}: $tsType;"
             }
