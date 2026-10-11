@@ -15,10 +15,19 @@ object TsGenerator {
         output: File,
         classLoader: ClassLoader = Thread.currentThread().contextClassLoader,
         writeSealedStrategy: SealedStrategy,
+    ) = generate(packageName, emptyList(), output, classLoader, writeSealedStrategy)
+
+    fun generate(
+        packageName: String,
+        includeClasses: Collection<String>,
+        output: File,
+        classLoader: ClassLoader = Thread.currentThread().contextClassLoader,
+        writeSealedStrategy: SealedStrategy,
     ) {
         println("TsGenerator: scanning package: $packageName")
+        if (includeClasses.isNotEmpty()) println("TsGenerator: including classes: ${includeClasses.joinToString()}")
 
-        val classes = ClassScanner().scan(packageName, classLoader)
+        val classes = ClassScanner().scan(packageName, includeClasses, classLoader)
 
         println("TsGenerator: found ${classes.size} classes total")
         classes.forEach { println(" - ${it.qualifiedName}") }
@@ -27,7 +36,7 @@ object TsGenerator {
             appendLine("// AUTO-GENERATED. DO NOT EDIT.")
             appendLine("// TSGenerator Version: $versionInfo")
             appendLine("// Time: $buildTime")
-            appendLine("// Source: $packageName")
+            appendLine("// Source: $packageName${if (includeClasses.isEmpty()) "" else "; extra classes: ${includeClasses.joinToString()}"}")
             appendLine()
 
             classes.forEach { cls ->

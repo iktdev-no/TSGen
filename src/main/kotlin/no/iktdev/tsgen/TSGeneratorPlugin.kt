@@ -6,11 +6,13 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.ListProperty
 import java.io.File
 import java.net.URLClassLoader
 
 interface TsGeneratorExtension {
     val packageName: Property<String>
+    val includeClasses: ListProperty<String>
     val outputFile: Property<File>
 
     val sealedStrategy: Property<SealedStrategy>
@@ -20,6 +22,7 @@ class TsGeneratorPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val extension = project.extensions.create("tsGenerator", TsGeneratorExtension::class.java).apply {
             sealedStrategy.convention(SealedStrategy.AS_INTERFACE_WITH_TYPE)
+            includeClasses.convention(emptyList())
         }
 
         project.tasks.register("generateTs") {
@@ -30,6 +33,7 @@ class TsGeneratorPlugin : Plugin<Project> {
                 TsGenerator.buildTime = java.time.Instant.now().toString()
 
                 val pkg = extension.packageName.get()
+                val includedClasses = extension.includeClasses.get()
                 val out = extension.outputFile.get()
                 val writeSealedStrategy = extension.sealedStrategy.get()
 
@@ -41,7 +45,7 @@ class TsGeneratorPlugin : Plugin<Project> {
                 val cl = URLClassLoader(urls, TsGenerator::class.java.classLoader)
 
                 // Kall generatoren med det nye flagget
-                TsGenerator.generate(pkg, out, cl, writeSealedStrategy)
+                TsGenerator.generate(pkg, includedClasses, out, cl, writeSealedStrategy)
             }
         }
     }

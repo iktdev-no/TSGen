@@ -38,4 +38,13 @@ class ClassScanner {
 
         return classes
     }
+
+    fun scan(packageName: String, includeClasses: Collection<String>, classLoader: ClassLoader): List<KClass<*>> =
+        (scan(packageName, classLoader) + includeClasses.map { className ->
+            try {
+                Class.forName(className, false, classLoader).kotlin
+            } catch (e: ClassNotFoundException) {
+                throw IllegalArgumentException("Included class '$className' was not found", e)
+            }
+        }).distinctBy { it.qualifiedName }
 }
