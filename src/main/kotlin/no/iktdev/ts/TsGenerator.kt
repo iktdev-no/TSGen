@@ -36,7 +36,13 @@ object TsGenerator {
             appendLine("// AUTO-GENERATED. DO NOT EDIT.")
             appendLine("// TSGenerator Version: $versionInfo")
             appendLine("// Time: $buildTime")
-            appendLine("// Source: $packageName${if (includeClasses.isEmpty()) "" else "; extra classes: ${includeClasses.joinToString()}"}")
+            appendLine("// package: $packageName")
+            appendLine("// includeClasses:")
+            includeClasses
+                .map { it.substringBeforeLast('.', "") }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .forEach { appendLine("//\t$it") }
             appendLine()
 
             classes.forEach { cls ->
