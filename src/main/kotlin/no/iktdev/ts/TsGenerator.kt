@@ -39,7 +39,6 @@ object TsGenerator {
             appendLine("// package: $packageName")
             appendLine("// includeClasses:")
             includeClasses
-                .map { it.substringBeforeLast('.', "") }
                 .filter { it.isNotBlank() }
                 .distinct()
                 .forEach { appendLine("//\t$it") }
